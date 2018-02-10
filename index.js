@@ -9,6 +9,7 @@
   let content = $('#content');
 
   let api = {
+    // calId: '94g0a5d8bjgdm0ei1hf3ts34fs@group.calendar.google.com', // marios
     calId: '9ja93ni65f22172u6ei93bp0rg@group.calendar.google.com',
     clientId: '646937741098-uvq1sdetn67in3pf38deq6qdrqfrq38r.apps.googleusercontent.com',
     key: 'AIzaSyBKulkjUUFMeLD2qn89kC2teUoJ1XAzYZQ',
