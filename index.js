@@ -3,10 +3,11 @@
 
 (function() {
 
-  // document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-  // console.log(document.cookie);
+  document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  console.log(document.cookie);
 
   let content = $('#content');
+  let formContainer = $('#form-overlay');
 
   let api = {
     // calId: '94g0a5d8bjgdm0ei1hf3ts34fs@group.calendar.google.com', // marios
@@ -37,15 +38,15 @@
 
     let html = '';
     let segment = '';
+    let format = 'h : mm a';
     let currentDay;
-
-    // console.log(items);
 
     for(let i = 0; i < items.length; i++) {
 
       let item = items[i];
-      let day = new Date(item.start.dateTime).getDay();
-      let days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      let start = moment(item.start.dateTime);
+      let end = moment(item.end.dateTime);
+      let day = start.format('dddd');
 
       // skip over booked appointments
       if(item.summary !== 'EMPTY') {
@@ -54,16 +55,17 @@
 
       // initially set the current day
       if(!currentDay) {
-        currentDay = days[day];
+        currentDay = day;
       }
 
       // if the event in the current loop does not belong to the current day, push the segment to the final html output and reset the segment
-      if(currentDay !== days[day]) {
+      if(currentDay !== day) {
 
         html += `
         <div class="row">
           <div class="col-sm-3">
             <h3>${currentDay}</h3>
+            <p>${start.format('MMMM D')}</p>
           </div>
           <div class="col-sm-9">
             <div class="row">${segment}</div>
@@ -75,15 +77,14 @@
       }
 
       // update the the current day
-      currentDay = days[day];
+      currentDay = day;
 
       // build the segment
       segment += `
         <div class="col-sm-4">
-          <div class="appointment" data-event-id="${item.id}">
+          <div class="appointment text-center" data-event-id="${item.id}">
             <h4>${item.summary}</h4>
-            <p>${new Date(item.start.dateTime).toTimeString()}</p>
-            <p>${new Date(item.end.dateTime).toTimeString()}</p>
+            <p>${start.format(format)} – ${end.format(format)}</p>
           </div>
         </div>
       `;
@@ -93,6 +94,8 @@
   }
 
   function getCalendarData() {
+
+    formContainer.css('display', 'none');
 
     let startTime = app.startTime();
     let endTime = app.endTime();
@@ -111,40 +114,137 @@
     });
   }
 
+  function showForm(eventId) {
+
+    let settings = {
+      key: api.key
+    };
+
+    $.get(api.getSingle(eventId), settings, function(data, textStatus, jqXHR) {
+      console.log(data, textStatus, jqXHR);
+
+      // available appointments will be named EMPTY by convention
+      if(data.summary !== 'EMPTY') {
+        notifyUser('This appointment is no longer available');
+        getCalendarData();
+        return;
+      }
+
+      let t = new Date(data.start.dateTime);
+
+      // hide the appointment form
+      formContainer.css('display', 'block');
+
+      formContainer.html(function() {
+        return `
+        <div class="container">
+          <div class="row">
+            <div class="col-md-12 text-center">
+              <h2>Book This Time</h2>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-5">
+              <div id="form-response"></div>
+            </div>
+            <div class="col-md-7">
+              <span class="close">X</span>
+              <div class="appointment-details">
+                <p>Your appointment will be @ ${moment(t).format('hh : mm on MMMM D, YYYY')}</p>
+              </div>
+              <form id="booking-form" action="">
+                <input id="event-id" type="hidden" value="${data.id}">
+                <fieldset class="form-group">
+                  <label for="name">Name</label>
+                  <input class="form-control" id="name" type="text" placeholder="Your Name" value="Kyle Tozer">
+                </fieldset>
+                <fieldset class="form-group">
+                  <label for="name">Email</label>
+                  <input class="form-control" id="email" type="email" placeholder="Your Email" value="kwtozer@gmail.com">
+                </fieldset>
+                <button class="btn btn-primary" type="submit">Book Appointment</button>
+              </form>
+            </div>
+          </div>
+        </div>
+        `;
+      });
+    });
+  }
+
+  function validateForm() {
+
+    let form = $(this);
+    let name = form.find('#name').val();
+    let email = form.find('#email').val();
+    let errors = {};
+
+    if(!name) {
+      errors.name = 'Please enter a valid name';
+    }
+
+    if(!email) {
+      errors.email = 'Please enter a valid email';
+    }
+
+    // if cookie has not been set (prevents more than one appointment booking)
+    if(document.cookie.indexOf(name) !== -1) {
+      errors.user = 'You have already booked an appointment this week, please try again next week';
+    }
+
+    if($.isEmptyObject(errors)) {
+      return [true, {name: name, email: email}];
+    }
+
+    return [false, errors];
+  }
+
+  function showErrors(errors) {
+
+    let target = $('#form-response');
+    let html = '';
+
+    for(let error in errors) {
+      html += `
+      <li><strong>${error}</strong> ${errors[error]}</li>
+      `;
+    }
+
+    target.html('<ul class="alert alert-danger">' + html + '</ul>');
+  }
+
   function setAppointment() {
 
-    content.on('click', '.appointment', function(e) {
+    formContainer.on('click', '#booking-form button', function(e) {
 
-      // if cookie has not been set (prevents more than one appointment booking)
-      if(document.cookie.indexOf('Kyle Tozer') !== -1) {
-        return;
-      }
+      e.preventDefault();
 
-      // if not signed in, take them to sign in prompt
-      if(!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        handleAuth();
-        return;
-      }
-
-      let eventId = $(this).attr('data-event-id');
+      let validationResult = validateForm.call($(this).closest('#booking-form')[0]);
+      let eventId = $('#event-id').val();
 
       let settings = {
         key: api.key
       };
 
+      if(!validationResult[0]) {
+        showErrors(validationResult[1]);
+        return;
+      }
+
       $.get(api.getSingle(eventId), settings, function(data, textStatus, jqXHR) {
         console.log(data, textStatus, jqXHR);
 
         if(data.summary !== 'EMPTY') {
+          notifyUser('This appointment is no longer available');
           return;
         }
 
-        data.summary = 'Meeting with X';
+        data.summary = 'Meeting with ' + validationResult[1].name;
         data.attendees = [];
 
         let attendee = {
-          email: 'kyle.tozer@hotmail.com',
-          displayName: 'Kyle Tozer'
+          email: validationResult[1].email,
+          displayName: validationResult[1].name
         };
 
         data.attendees.push(attendee);
@@ -156,10 +256,42 @@
           resource: data
         })
         .then(function(response) {
+
+          // set cookie to prevent more than one booking per week
           document.cookie = 'username=' + attendee.displayName + '; expires=' + new Date(app.endTime()).toUTCString() + '; path=/';
+
+          notifyUser('Your appointment was successfully booked!');
+
+          // update calendar view
           getCalendarData();
         });
       });
+    });
+
+    formContainer.on('click', '.close', function(e) {
+      $(this).closest('#form-overlay').css('display', 'none');
+    });
+  }
+
+  function notifyUser(message) {
+    $('#message').text(message);
+  }
+
+  function setAppointmentForm() {
+
+    content.on('click', '.appointment', function(e) {
+
+      $('#message').empty();
+
+      // if not signed in, take them to sign in prompt
+      if(!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+        handleAuth();
+        return;
+      }
+
+      let eventId = $(this).attr('data-event-id');
+
+      showForm(eventId);
     });
   }
 
@@ -195,6 +327,7 @@
   function initApp() {
     handleClientLoad();
     getCalendarData();
+    setAppointmentForm();
     setAppointment();
   }
 
