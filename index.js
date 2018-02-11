@@ -62,9 +62,9 @@
       if(currentDay !== day) {
 
         html += `
-        <div class="row">
+        <div class="row day">
           <div class="col-sm-3">
-            <h3>${currentDay}</h3>
+            <h4>${currentDay}</h4>
             <p>${start.format('MMMM D')}</p>
           </div>
           <div class="col-sm-9">
@@ -82,8 +82,7 @@
       // build the segment
       segment += `
         <div class="col-sm-4">
-          <div class="appointment text-center" data-event-id="${item.id}">
-            <h4>${item.summary}</h4>
+          <div role="button" class="appointment text-center" data-event-id="${item.id}">
             <p>${start.format(format)} – ${end.format(format)}</p>
           </div>
         </div>
@@ -139,15 +138,11 @@
         return `
         <div class="container">
           <div class="row">
-            <div class="col-md-12 text-center">
-              <h2>Book This Time</h2>
-            </div>
-          </div>
-          <div class="row">
             <div class="col-md-5">
               <div id="form-response"></div>
             </div>
-            <div class="col-md-7">
+            <div class="book col-md-7">
+              <h2 class="heading">Book This Time</h2>
               <span class="close">X</span>
               <div class="appointment-details">
                 <p>Your appointment will be @ ${moment(t).format('hh : mm on MMMM D, YYYY')}</p>
@@ -156,11 +151,11 @@
                 <input id="event-id" type="hidden" value="${data.id}">
                 <fieldset class="form-group">
                   <label for="name">Name</label>
-                  <input class="form-control" id="name" type="text" placeholder="Your Name" value="Kyle Tozer">
+                  <input class="form-control" id="name" type="text" placeholder="Your Name">
                 </fieldset>
                 <fieldset class="form-group">
                   <label for="name">Email</label>
-                  <input class="form-control" id="email" type="email" placeholder="Your Email" value="kwtozer@gmail.com">
+                  <input class="form-control" id="email" type="email" placeholder="Your Email">
                 </fieldset>
                 <button class="btn btn-primary" type="submit">Book Appointment</button>
               </form>
