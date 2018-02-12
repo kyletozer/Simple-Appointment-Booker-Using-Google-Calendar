@@ -1,3 +1,11 @@
+main > div {
+  position: relative;
+}
+
+#form-response ul {
+  list-style: none;
+}
+
 .appointment {
   background: #ccc;
   border-radius: 5px;
@@ -7,14 +15,15 @@
 }
 
 #form-overlay {
-  background: rgba(0, 0, 0, .25);
-  position: absolute;
+  background: white;
+  position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
   z-index: 9;
   display:none;
+  padding-top: 40px;
 }
 
 #form-overlay > div {
@@ -26,7 +35,7 @@
 }
 
 .book {
-  background: white;
+  height: 100%;
 }
 
 .heading {
@@ -41,4 +50,25 @@
 
 .day p {
   margin: 0;
+}
+
+.close {
+  font-size: 12px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  margin-right: 15px;
+  opacity: .7;
+}
+
+#content {
+  margin-bottom: 40px;
+}
+
+#message {
+  margin: 10px 0;
+}
+
+#booking-form button[type="submit"] {
+  background: navy;
 }

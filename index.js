@@ -3,14 +3,10 @@
 
 (function() {
 
-  document.cookie = "username=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-  console.log(document.cookie);
-
   let content = $('#content');
   let formContainer = $('#form-overlay');
 
   let api = {
-    // calId: '94g0a5d8bjgdm0ei1hf3ts34fs@group.calendar.google.com', // marios
     calId: '9ja93ni65f22172u6ei93bp0rg@group.calendar.google.com',
     clientId: '646937741098-uvq1sdetn67in3pf38deq6qdrqfrq38r.apps.googleusercontent.com',
     key: 'AIzaSyBKulkjUUFMeLD2qn89kC2teUoJ1XAzYZQ',
@@ -33,7 +29,7 @@
     }
   }
 
-
+  // re-render the calendar view after an appointment has been booked
   function renderCalendarView(items) {
 
     let html = '';
@@ -83,7 +79,7 @@
       segment += `
         <div class="col-sm-4">
           <div role="button" class="appointment text-center" data-event-id="${item.id}">
-            <p>${start.format(format)} – ${end.format(format)}</p>
+            <p>${start.format(format)}<br>–<br>${end.format(format)}</p>
           </div>
         </div>
       `;
@@ -94,6 +90,7 @@
 
   function getCalendarData() {
 
+    // automatically hide the form container when re-rendering the calendar
     formContainer.css('display', 'none');
 
     let startTime = app.startTime();
@@ -108,7 +105,7 @@
     };
 
     $.get(api.getAll(), settings, function(data, textStatus, jqXHR) {
-      console.log(data, textStatus, jqXHR);
+      // console.log(data, textStatus, jqXHR);
       renderCalendarView(data.items);
     });
   }
@@ -120,7 +117,7 @@
     };
 
     $.get(api.getSingle(eventId), settings, function(data, textStatus, jqXHR) {
-      console.log(data, textStatus, jqXHR);
+      // console.log(data, textStatus, jqXHR);
 
       // available appointments will be named EMPTY by convention
       if(data.summary !== 'EMPTY') {
@@ -143,7 +140,7 @@
             </div>
             <div class="book col-md-7">
               <h2 class="heading">Book This Time</h2>
-              <span class="close">X</span>
+              <span role="button" class="close">Back to calendar</span>
               <div class="appointment-details">
                 <p>Your appointment will be @ ${moment(t).format('hh : mm on MMMM D, YYYY')}</p>
               </div>
@@ -154,7 +151,7 @@
                   <input class="form-control" id="name" type="text" placeholder="Your Name">
                 </fieldset>
                 <fieldset class="form-group">
-                  <label for="name">Email</label>
+                  <label for="email">Email</label>
                   <input class="form-control" id="email" type="email" placeholder="Your Email">
                 </fieldset>
                 <button class="btn btn-primary" type="submit">Book Appointment</button>
@@ -174,23 +171,34 @@
     let email = form.find('#email').val();
     let errors = {};
 
+    // error checking
     if(!name) {
-      errors.name = 'Please enter a valid name';
+      errors.name = 'Name cannot be empty';
     }
 
-    if(!email) {
+    if(name.length <= 2) {
+      errors.name = 'Name must be longer than 2 characters.';
+    }
+
+    if(!/^(([^<>()\[\]\\.,;:\s@"]+(\.[^<>()\[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/.test(email)) {
       errors.email = 'Please enter a valid email';
     }
 
-    // if cookie has not been set (prevents more than one appointment booking)
-    if(document.cookie.indexOf(name) !== -1) {
+    if(!email) {
+      errors.email = 'Email cannot be empty';
+    }
+
+    // checks cookie to see if user has previously booked an appointment
+    if(document.cookie.indexOf(gapi.auth2.getAuthInstance().currentUser.get().getId()) !== -1) {
       errors.user = 'You have already booked an appointment this week, please try again next week';
     }
 
+    // check if the error object is empty, if so return the values
     if($.isEmptyObject(errors)) {
       return [true, {name: name, email: email}];
     }
 
+    // otherwise return the errors
     return [false, errors];
   }
 
@@ -199,13 +207,14 @@
     let target = $('#form-response');
     let html = '';
 
+    // loop through the errors object and render them in the html
     for(let error in errors) {
       html += `
       <li><strong>${error}</strong> ${errors[error]}</li>
       `;
     }
 
-    target.html('<ul class="alert alert-danger">' + html + '</ul>');
+    target.html('<ul class="alert alert-danger"><h4>Please correct the following before submitting</h4>' + html + '</ul>');
   }
 
   function setAppointment() {
@@ -221,13 +230,15 @@
         key: api.key
       };
 
+      // validate the data before making the api calls
       if(!validationResult[0]) {
         showErrors(validationResult[1]);
         return;
       }
 
+      // make an api call to the selected appointment to ensure that it is still available
       $.get(api.getSingle(eventId), settings, function(data, textStatus, jqXHR) {
-        console.log(data, textStatus, jqXHR);
+        // console.log(data, textStatus, jqXHR);
 
         if(data.summary !== 'EMPTY') {
           notifyUser('This appointment is no longer available');
@@ -244,16 +255,16 @@
 
         data.attendees.push(attendee);
 
-        // update event
+        // update the appointment and push to the calendar
         gapi.client.calendar.events.patch({
           calendarId: api.calId,
           eventId: data.id,
-          resource: data
+          resource: data,
+          sendNotifications: true
         })
         .then(function(response) {
 
-          // set cookie to prevent more than one booking per week
-          document.cookie = 'username=' + attendee.displayName + '; expires=' + new Date(app.endTime()).toUTCString() + '; path=/';
+          document.cookie = 'user=' + gapi.auth2.getAuthInstance().currentUser.get().getId() + '; expires=' + moment().add(7, 'd').format();
 
           notifyUser('Your appointment was successfully booked!');
 
@@ -291,7 +302,6 @@
   }
 
   function handleAuth() {
-    console.log('you must sign in');
     gapi.auth2.getAuthInstance().signIn();
   }
 
@@ -301,13 +311,14 @@
 
   function initClient() {
 
+    // authorize user with oauth
     gapi.client.init({
       apiKey: api.key,
       clientId: api.clientId,
       discoveryDocs: [
         'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'
       ],
-      scope: 'https://www.googleapis.com/auth/calendar'
+      scope: 'https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/userinfo.profile'
     })
     .then(function() {
       gapi.auth2.getAuthInstance().isSignedIn.listen(updateSigninStatus);
@@ -316,7 +327,7 @@
   }
 
   function updateSigninStatus(isSignedIn) {
-    console.log('is signed in?:', isSignedIn);
+    // console.log('is signed in?:', isSignedIn);
   }
 
   function initApp() {
