@@ -118,9 +118,9 @@
       return;
     }
 
+    // get available appointment times, using EMPTY as the event's summary value is a naming convention used to identify open appointment block times
     $.get(url, options, function(data, textStatus, jqXHR) {
       // console.log(data, textStatus, jqXHR);
-
       if(data.summary === 'EMPTY') {
         callback(data);
       }
@@ -128,6 +128,7 @@
   }
 
   function toggleForm() {
+
     content.on('click', '.appointment', function(e) {
       let eventId = $(this).attr('data-event-id');
       getSingleEvent(eventId, renderForm);
@@ -176,7 +177,6 @@
       // add event to users calendar
       getSingleEvent(eventId, function(data) {
         // console.log(data);
-
         let resource = {
           summary: 'Meeting with Kyle Tozer',
           start: data.start,
@@ -186,6 +186,7 @@
           ]
         };
 
+        // add appointment event time to current user's calendar and notify host of this action
         gapi.client.calendar.events.insert({
           calendarId: 'primary',
           sendNotifications: true,
@@ -223,8 +224,6 @@
       })
       .then(function() {
 
-        // check cookie to see if user has already booked an appointment
-
         user = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
 
         let m = moment();
@@ -237,8 +236,7 @@
         });
       })
       .then(function (response) {
-
-        console.log(response);
+        // console.log(response);
 
         let event = response.result.items.find(function(item) {
           return item.attendees[0].email === 'kwtozer@gmail.com';
