@@ -257,8 +257,11 @@
         // if the response parameter contains calendar data, parse it for an event that would have been previously added to their calendar
         if(response && response.result) {
           event = response.result.items.find(function(item) {
-            return item.attendees[0].email === 'kwtozer@gmail.com';
-          });
+          if(!item.attendees){
+            return
+          }
+          return item.attendees.find(a=>a.email === 'kwtozer@gmail.com');
+        });
         }
 
         // if no event exists in the current users main calendar or the requested event was declined, reset the cookie
