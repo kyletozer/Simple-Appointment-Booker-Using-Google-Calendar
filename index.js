@@ -96,7 +96,7 @@
     content.html(html);
 
     // check cookie, if a user value exists on that cookie, the user cannot book another appointment until that cookie expires a week from when the appointment was requested
-    if(document.cookie.indexOf(user.getId()) !== -1) {
+    if(user && document.cookie.indexOf(user.getId()) !== -1) {
 
       $('#message').text('Your appointment has been booked; I will be seeing you shortly!');
 
@@ -112,9 +112,13 @@
       key: apiKey
     };
 
-    // create auth token
+    // if auth token does not already exist
     if(!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+
+      // sign the user in and allow them to book appointments by setting up the appointment for click handler
       gapi.auth2.getAuthInstance().signIn();
+      bookAppointment();
+
       return;
     }
 
@@ -169,6 +173,9 @@
 
   function bookAppointment() {
 
+    // if the global user has not been set, do not set up the appointment form handler
+    if(!user) return;
+
     formOverlay.on('submit', '#booking-form', function(e) {
       e.preventDefault();
 
@@ -222,25 +229,37 @@
         ],
         scope: 'https://www.googleapis.com/auth/calendar'
       })
-      .then(function() {
+      .then(function(response) {
 
-        user = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
+        // if the user is already signed in, retrieve their calendar and determine whether they have attempted to book an appointment prior
+        if(gapi.auth2.getAuthInstance().isSignedIn.get()) {
+          user = gapi.auth2.getAuthInstance().currentUser.get().getBasicProfile();
 
-        let m = moment();
+          let m = moment();
 
-        return gapi.client.calendar.events.list({
-          calendarId: 'primary',
-          alwaysIncludeEmail: true,
-          timeMin: m.format(),
-          timeMax: m.add(7, 'd').format()
+          return gapi.client.calendar.events.list({
+            calendarId: 'primary',
+            alwaysIncludeEmail: true,
+            timeMin: m.format(),
+            timeMax: m.add(7, 'd').format()
+          });
+        }
+
+        return new Promise(function(resolve, reject) {
+          resolve(response);
         });
       })
       .then(function (response) {
         // console.log(response);
 
-        let event = response.result.items.find(function(item) {
-          return item.attendees[0].email === 'kwtozer@gmail.com';
-        });
+        let event;
+
+        // if the response parameter contains calendar data, parse it for an event that would have been previously added to their calendar
+        if(response && response.result) {
+          event = response.result.items.find(function(item) {
+            return item.attendees[0].email === 'kwtozer@gmail.com';
+          });
+        }
 
         // if no event exists in the current users main calendar or the requested event was declined, reset the cookie
         if(!event || event.attendees[0].responseStatus === 'declined') {
