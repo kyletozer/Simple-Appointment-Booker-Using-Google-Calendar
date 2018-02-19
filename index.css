@@ -1,3 +1,25 @@
+body {
+  background: linear-gradient(
+      rgba(0, 0, 0, .5),
+      rgba(0, 0, 0, .5)
+    ), url(./images/bg.png) no-repeat center center fixed;
+  background-size: cover;
+}
+
+h1.heading, #message span {
+  color: white;
+  background: rgba(0, 0, 0, .75);
+}
+
+#message {
+  margin: 20px 0 10px;
+}
+
+#message span {
+  padding: 10px;
+  border-radius: 4px;
+}
+
 main > div {
   position: relative;
 }
@@ -15,7 +37,7 @@ main > div {
 }
 
 #form-overlay {
-  background: white;
+  background: rgba(0, 0, 0, .9);
   position: fixed;
   top: 0;
   left: 0;
@@ -29,22 +51,15 @@ main > div {
   height: 100%;
 }
 
-#form-overlay > div > div {
-  height: inherit;
-}
-
-.book {
-  height: 100%;
-}
-
 .heading {
-  margin: 30px 0;
+  padding: 30px 0;
 }
 
 .day {
-  background: #ABFDFF;
+  background: rgba(171, 253, 255, .9);
   margin-bottom: 10px;
   padding: 10px;
+  border-radius: 5px;
 }
 
 .day p {
@@ -54,8 +69,8 @@ main > div {
 .close {
   font-size: 12px;
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 20px;
+  right: 20px;
   margin-right: 15px;
   opacity: .7;
 }
@@ -64,10 +79,12 @@ main > div {
   margin-bottom: 40px;
 }
 
-#message {
-  margin: 10px 0;
-}
-
 #booking-form button[type="submit"] {
   background: navy;
+}
+
+.book {
+  background: white;
+  padding: 20px;
+  border-radius: 4px;
 }
