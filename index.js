@@ -110,7 +110,7 @@
     $.get(url, options, function(data, textStatus, jqXHR) {
       // console.log(data, textStatus, jqXHR);
       if(data.summary === 'EMPTY') {
-        renderForm(data);
+        callback(data);
       }
     });
   }
@@ -166,9 +166,40 @@
   function bookAppointment() {
 
     formOverlay.on('submit', '#booking-form', function(e) {
+
       e.preventDefault();
 
-      console.log('appointment booked');
+      let eventId = $('#event-id').val();
+
+      // get the event
+      getSingleEvent(eventId, function(data) {
+        // console.log(data);
+
+        let resource = {
+          summary: 'Meeting with Kyle Tozer',
+          start: data.start,
+          end: data.end,
+          attendees: [ { email: data.creator.email } ]
+        };
+
+        // add appointment event time to current user's calendar and notify host of this action
+        gapi.client.calendar.events.insert({
+          calendarId: 'primary',
+          sendNotifications: true,
+          resource: resource
+        })
+        .then(function(response) {
+          // console.log(response);
+
+          content.empty();
+          $('.close').trigger('click');
+
+          return getUserEvents();
+        })
+        .then(handleGetUserEventsResponse);
+      });
+
+      // console.log('appointment booked');
     });
   }
 
@@ -188,8 +219,7 @@
   }
 
   function statusMessage(appointment) {
-
-    console.log(appointment);
+    // console.log(appointment);
 
     let status = appointment.attendees[0].responseStatus;
     let message;
@@ -202,6 +232,27 @@
     }
 
     $('#message').html('<span>' + message + '</span>');
+  }
+
+  function getUserEvents() {
+    let m = moment();
+
+    return gapi.client.calendar.events.list({
+      calendarId: 'primary',
+      alwaysIncludeEmail: true,
+      timeMin: m.format(),
+      timeMax: m.add(7, 'd').format()
+    });
+  }
+
+  function handleGetUserEventsResponse(response) {
+    let appointment = getBookedAppointment(response.result.items);
+
+    // check if the user has previously tried to book an appointment and what the status of that booking is
+    if(appointment) {
+      statusMessage(appointment);
+      return appointment;
+    }
   }
 
   $(function() {
@@ -217,18 +268,11 @@
         scope: 'https://www.googleapis.com/auth/calendar'
       })
       .then(function() {
-        console.log('gapi initialized');
-
-        let m = moment();
+        // console.log('gapi initialized');
 
         // check if user is authenticated
         if(gapi.auth2.getAuthInstance().isSignedIn.get()) {
-          return gapi.client.calendar.events.list({
-            calendarId: 'primary',
-            alwaysIncludeEmail: true,
-            timeMin: m.format(),
-            timeMax: m.add(7, 'd').format()
-          });
+          return getUserEvents();
         }
       })
       .then(function(response) {
@@ -237,14 +281,9 @@
         // if the user is authenticated a response object will be available
         if(response && response.result && response.result.items) {
 
-          let appointment = getBookedAppointment(response.result.items);
+          let appointment = handleGetUserEventsResponse(response);
 
-          // check if the user has previously tried to book an appointment and what the status of that booking is
-          if(appointment) {
-            statusMessage(appointment);
-
-          } else {
-
+           if(!appointment) {
             toggleForm();
             bookAppointment();
             getCalendarData();
