@@ -148,7 +148,7 @@
       let end = moment(item.end.dateTime);
 
       // if appointment is in the past
-      if(end.unix() < moment().unix()) {
+      if(end.unix() < moment().unix() && item.summary.indexOf('Kyle Tozer') !== -1) {
         continue;
       }
 
