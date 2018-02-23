@@ -201,12 +201,31 @@
     });
   }
 
+  function bookAttempt(response) {
+    console.log(response);
+
+    // get the appointment from the response object containing the authenticated users calendar
+    let appointment = getAppointment(response);
+    console.log(appointment);
+
+    // display booking page
+    if(!appointment) {
+      return getSingleEvent(eventId, renderBookingForm);
+    }
+
+    renderCalendarView(appointment);
+  }
+
   function toggleForm() {
 
     $('#content').on('click', '.appointment', function(e) {
       // if the user isn't authenticated, allow them to authenticate as they cannot book an appointment without first doing so
       if(!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        gapi.auth2.getAuthInstance().signIn();
+        gapi.auth2.getAuthInstance().signIn()
+        .then(function() {
+          return getUsersCalendar();
+        })
+        .then(bookAttempt);
         return;
       }
 
@@ -214,18 +233,7 @@
       console.log(eventId);
 
       getUsersCalendar()
-      .then(function(response) {
-        console.log(response);
-
-        // get the appointment from the response object containing the authenticated users calendar
-        let appointment = getAppointment(response);
-        console.log(appointment);
-
-        // display booking page
-        if(!appointment) {
-          return getSingleEvent(eventId, renderBookingForm);
-        }
-      });
+      .then(bookAttempt);
     });
 
     $('#form-overlay').on('click', '.close', function(e) {
