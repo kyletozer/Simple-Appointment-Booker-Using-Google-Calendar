@@ -145,6 +145,12 @@
 
     for(let i = 0; i < items.length; i++) {
       let item = items[i];
+      let end = moment(item.end.dateTime);
+
+      // if appointment is in the past
+      if(end.unix() < moment().unix()) {
+        continue;
+      }
 
       for(let j = 0; j < item.attendees.length; j++) {
         let attendee = item.attendees[j];
