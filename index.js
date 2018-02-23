@@ -8,7 +8,7 @@
   const calendarId = '9ja93ni65f22172u6ei93bp0rg@group.calendar.google.com';
 
   const hostEmail = 'kwtozer@gmail.com';
-  const summary = 'Meeting with Kyle Tozer';
+  const summary = 'Let\'s Talk Web Meeting with Kyle Tozer';
 
 
   function getCalendarData() {
@@ -113,6 +113,15 @@
        </div>
      `;
     }
+
+    html = `
+    <div id="info-box" class="text-center container">
+      <p>Book an appointment with me talk about web and whatever!</p>
+      <p>Just choose a time below and you will be notified when I accept.</p>
+      <strong>Booking an appointment requires a Google account. <a href="https://accounts.google.com/SignUp?hl=en">Sign up for one</a></strong>
+    </div>
+    ${html}
+    `;
 
     $('#content').html(html);
   }
