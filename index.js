@@ -3,17 +3,10 @@
 
 (function() {
 
-  // document.cookie = "user=; event=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-  const content = $('#content');
-  const formOverlay = $('#form-overlay');
-
-  const calendarId = '9ja93ni65f22172u6ei93bp0rg@group.calendar.google.com';
   const apiKey = 'AIzaSyBKulkjUUFMeLD2qn89kC2teUoJ1XAzYZQ';
   const clientId = '646937741098-uvq1sdetn67in3pf38deq6qdrqfrq38r.apps.googleusercontent.com';
-  const hostEmail = 'kwtozer@gmail.com';
+  const calendarId = '9ja93ni65f22172u6ei93bp0rg@group.calendar.google.com';
 
-  let user;
 
   function getCalendarData() {
 
@@ -40,16 +33,39 @@
     });
   }
 
-  function renderCalendarView(items) {
+  function renderCalendarView(data) {
 
     let html = '';
+
+    // if data is not an array render the appropriate message for the status of the single event
+    if(!Array.isArray(data)) {
+      let status = data.attendees[0].responseStatus;
+      let message = '';
+
+      if(status === 'needsAction') {
+        message = 'Your appointment has not yet been confirmed, keep an eye on your inbox!';
+
+      } else if(status === 'accepted') {
+        message = 'Your appointment has been confirmed, I will be seeing you on ' + moment(appointment.start.dateTime).format() + '.';
+      }
+
+      html = `
+        <div id="message" class="text-center">
+          <span>${message}</span>
+        </div>
+      `;
+
+      $('#content').html(html);
+      return;
+    }
+
     let segment = '';
     let format = 'h : mm a';
     let currentDay;
 
-    for(let i = 0; i < items.length; i++) {
+    for(let i = 0; i < data.length; i++) {
 
-     let item = items[i];
+     let item = data[i];
      let start = moment(item.start.dateTime);
      let end = moment(item.end.dateTime);
      let day = start.format('dddd');
@@ -95,47 +111,52 @@
      `;
     }
 
-    content.html(html);
+    $('#content').html(html);
   }
 
-  function getSingleEvent(eventId, callback) {
+  function getUsersCalendar() {
+    // check if user is authorized
+    if(!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+      return;
+    }
 
-    let url = 'https://www.googleapis.com/calendar/v3/calendars/' + calendarId + '/events/' + eventId;
+    let m = moment();
 
-    let options = {
-      key: apiKey
-    };
+    return gapi.client.calendar.events.list({
+      calendarId: 'primary',
+      alwaysIncludeEmail: true,
+      timeMin: m.format(),
+      timeMax: m.add(7, 'd').format()
+    });
+  }
 
-    // get available appointment times, using EMPTY as the event's summary value is a naming convention used to identify open appointment block times
-    $.get(url, options, function(data, textStatus, jqXHR) {
-      // console.log(data, textStatus, jqXHR);
-      if(data.summary === 'EMPTY') {
-        callback(data);
+  function getAppointment(response) {
+
+    if(!response) {
+      return;
+    }
+
+    // response contains just a single event
+    if(response.result && !response.result.items) {
+      return response.result;
+    }
+
+    let items = response.result.items;
+
+    for(let i = 0; i < items.length; i++) {
+      let item = items[i];
+
+      for(let j = 0; j < item.attendees.length; j++) {
+        let attendee = item.attendees[j];
+
+        if(attendee.email === 'kwtozer@gmail.com' && attendee.responseStatus !== 'declined') {
+          return item;
+        }
       }
-    });
+    }
   }
 
-  function toggleForm() {
-
-    content.on('click', '.appointment', function(e) {
-
-      // if the user isn't authenticated, allow them to authenticate as they cannot book an appointment without first doing so
-      if(!gapi.auth2.getAuthInstance().isSignedIn.get()) {
-        gapi.auth2.getAuthInstance().signIn();
-        return;
-      }
-
-      let eventId = $(this).attr('data-event-id');
-
-      getSingleEvent(eventId, renderForm);
-    });
-
-    formOverlay.on('click', '.close', function(e) {
-      $(e.delegateTarget).empty().hide();
-    });
-  }
-
-  function renderForm(data) {
+  function renderBookingForm(data) {
 
     let t = moment(data.start.dateTime);
 
@@ -160,13 +181,61 @@
     </div>
     `;
 
-    formOverlay.show().html(html);
+    $('#form-overlay').show().html(html);
+  }
+
+  function getSingleEvent(eventId, callback) {
+
+    let url = 'https://www.googleapis.com/calendar/v3/calendars/' + calendarId + '/events/' + eventId;
+
+    let options = {
+      key: apiKey
+    };
+
+    // get available appointment times, using EMPTY as the event's summary value is a naming convention used to identify open appointment block times
+    $.get(url, options, function(data, textStatus, jqXHR) {
+      // console.log(data, textStatus, jqXHR);
+      if(data.summary === 'EMPTY') {
+        callback(data);
+      }
+    });
+  }
+
+  function toggleForm() {
+
+    $('#content').on('click', '.appointment', function(e) {
+      // if the user isn't authenticated, allow them to authenticate as they cannot book an appointment without first doing so
+      if(!gapi.auth2.getAuthInstance().isSignedIn.get()) {
+        gapi.auth2.getAuthInstance().signIn();
+        return;
+      }
+
+      let eventId = $(this).attr('data-event-id');
+      console.log(eventId);
+
+      getUsersCalendar()
+      .then(function(response) {
+        console.log(response);
+
+        // get the appointment from the response object containing the authenticated users calendar
+        let appointment = getAppointment(response);
+        console.log(appointment);
+
+        // display booking page
+        if(!appointment) {
+          return getSingleEvent(eventId, renderBookingForm);
+        }
+      });
+    });
+
+    $('#form-overlay').on('click', '.close', function(e) {
+      $(e.delegateTarget).hide();
+    });
   }
 
   function bookAppointment() {
 
-    formOverlay.on('submit', '#booking-form', function(e) {
-
+    $('#form-overlay').on('submit', '#booking-form', function(e) {
       e.preventDefault();
 
       let eventId = $('#event-id').val();
@@ -174,7 +243,6 @@
       // get the event
       getSingleEvent(eventId, function(data) {
         // console.log(data);
-
         let resource = {
           summary: 'Meeting with Kyle Tozer',
           start: data.start,
@@ -189,70 +257,17 @@
           resource: resource
         })
         .then(function(response) {
-          // console.log(response);
+          console.log(response);
 
-          content.empty();
+          let appointment = getAppointment(response);
+          console.log(appointment);
+
+          renderCalendarView(appointment);
           $('.close').trigger('click');
-
-          return getUserEvents();
-        })
-        .then(handleGetUserEventsResponse);
+        });
       });
-
       // console.log('appointment booked');
     });
-  }
-
-  function getBookedAppointment(items) {
-
-    for(let i = 0; i < items.length; i++) {
-      let item = items[i];
-
-      for(let j = 0; j < item.attendees.length; j++) {
-        let attendee = item.attendees[j];
-
-        if(attendee.email === hostEmail && attendee.responseStatus !== 'declined') {
-          return item;
-        }
-      }
-    }
-  }
-
-  function statusMessage(appointment) {
-    // console.log(appointment);
-
-    let status = appointment.attendees[0].responseStatus;
-    let message;
-
-    if(status === 'needsAction') {
-      message = 'Your appointment has not yet been confirmed, keep an eye on your inbox!';
-
-    } else if(status === 'accepted') {
-      message = 'Your appointment has been confirmed, I will be seeing you on ' + moment(appointment.start.dateTime).format() + '.';
-    }
-
-    $('#message').html('<span>' + message + '</span>');
-  }
-
-  function getUserEvents() {
-    let m = moment();
-
-    return gapi.client.calendar.events.list({
-      calendarId: 'primary',
-      alwaysIncludeEmail: true,
-      timeMin: m.format(),
-      timeMax: m.add(7, 'd').format()
-    });
-  }
-
-  function handleGetUserEventsResponse(response) {
-    let appointment = getBookedAppointment(response.result.items);
-
-    // check if the user has previously tried to book an appointment and what the status of that booking is
-    if(appointment) {
-      statusMessage(appointment);
-      return appointment;
-    }
   }
 
   $(function() {
@@ -268,28 +283,29 @@
         scope: 'https://www.googleapis.com/auth/calendar'
       })
       .then(function() {
-        // console.log('gapi initialized');
+        console.log('gapi initialized');
 
-        // check if user is authenticated
-        if(gapi.auth2.getAuthInstance().isSignedIn.get()) {
-          return getUserEvents();
-        }
+        // attempt to get the users calendar
+        // gapi.auth2.getAuthInstance().signIn();
+        return getUsersCalendar();
       })
       .then(function(response) {
-        // console.log(response);
+        console.log(response);
 
-        // if the user is authenticated a response object will be available
-        if(response && response.result && response.result.items) {
+        // get the appointment from the response object containing the authenticated users calendar
+        let appointment = getAppointment(response);
+        console.log(appointment);
 
-          let appointment = handleGetUserEventsResponse(response);
-
-           if(!appointment) {
-            toggleForm();
-            bookAppointment();
-            getCalendarData();
-          }
+        if(!appointment || appointment.attendees[0].responseStatus
+         === 'declined') {
+          return getCalendarData();
         }
+
+        renderCalendarView(appointment);
       });
+
+      toggleForm();
+      bookAppointment();
     });
   });
 
