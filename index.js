@@ -46,7 +46,7 @@
         message = 'Your appointment has not yet been confirmed, keep an eye on your inbox!';
 
       } else if(status === 'accepted') {
-        message = 'Your appointment has been confirmed, I will be seeing you on ' + moment(appointment.start.dateTime).format() + '.';
+        message = 'Your appointment has been confirmed, I will be seeing you on ' + moment(data.start.dateTime).format() + '.';
       }
 
       html = `
@@ -204,6 +204,9 @@
   function bookAttempt(response) {
     console.log(response);
 
+    let eventId = $(this).attr('data-event-id');
+    console.log(eventId);
+
     // get the appointment from the response object containing the authenticated users calendar
     let appointment = getAppointment(response);
     console.log(appointment);
@@ -225,15 +228,12 @@
         .then(function() {
           return getUsersCalendar();
         })
-        .then(bookAttempt);
+        .then(bookAttempt.bind(this));
         return;
       }
 
-      let eventId = $(this).attr('data-event-id');
-      console.log(eventId);
-
       getUsersCalendar()
-      .then(bookAttempt);
+      .then(bookAttempt.bind(this));
     });
 
     $('#form-overlay').on('click', '.close', function(e) {
