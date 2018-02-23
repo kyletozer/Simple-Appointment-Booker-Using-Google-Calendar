@@ -7,6 +7,9 @@
   const clientId = '646937741098-uvq1sdetn67in3pf38deq6qdrqfrq38r.apps.googleusercontent.com';
   const calendarId = '9ja93ni65f22172u6ei93bp0rg@group.calendar.google.com';
 
+  const hostEmail = 'kwtozer@gmail.com';
+  const summary = 'Meeting with Kyle Tozer';
+
 
   function getCalendarData() {
 
@@ -147,16 +150,15 @@
       let item = items[i];
       let end = moment(item.end.dateTime);
 
-      // if appointment is in the past
-      if(end.unix() < moment().unix() && item.summary.indexOf('Kyle Tozer') !== -1) {
-        continue;
-      }
+      let check = item.summary === summary;
 
-      for(let j = 0; j < item.attendees.length; j++) {
-        let attendee = item.attendees[j];
+      if(check) {
+        for(let j = 0; j < item.attendees.length; j++) {
+          let attendee = item.attendees[j];
 
-        if(attendee.email === 'kwtozer@gmail.com' && attendee.responseStatus !== 'declined') {
-          return item;
+          if(attendee.email === hostEmail && attendee.responseStatus !== 'declined') {
+            return item;
+          }
         }
       }
     }
@@ -258,7 +260,7 @@
       getSingleEvent(eventId, function(data) {
         // console.log(data);
         let resource = {
-          summary: 'Meeting with Kyle Tozer',
+          summary: summary,
           start: data.start,
           end: data.end,
           attendees: [ { email: data.creator.email } ]
